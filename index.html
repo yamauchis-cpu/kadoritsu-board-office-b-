@@ -524,12 +524,13 @@ $('copyBtn').addEventListener('click', async ()=>{
   const nyuuin = parseInt($('nyuuin').value||'0',10);
   const pct = maxCount>0 ? Math.round(((houmon+kaigi)/maxCount)*1000)/10 : 0;
 
-  let text = `【${CONFIG.officeName}｜${label}】本日の稼働状況\n`;
-  text += `稼働率：${pct}%（目標70%）${pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n`;
-  text += `------------------\n`;
+   let text = `【${CONFIG.officeName}｜${label}】\n\n`;
+  text += `本日の稼働状況\n`;
+  text += `稼働率：${pct}%（目標70%）\n`;
+  text += `${pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
+  text += `＝＝＝＝＝\n`;
   text += `訪問件数：${houmon}件\n`;
   text += `会議件数：${kaigi}件\n`;
-  text += `最大訪問件数：${maxCount}件（総勤務時間${hours}h／管理者出勤${managerOn?'あり':'なし'}）\n`;
   text += `特指示：${tokushiji}名\n`;
   text += `点滴指示：${tenteki}名\n`;
   text += `入院中：${nyuuin}名\n`;
