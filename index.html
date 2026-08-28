@@ -118,6 +118,7 @@
   .copy-btn.copied{background:var(--moss);}
   .pdf-btn{background:transparent; border:1.5px solid var(--teal); color:var(--teal-deep); margin-top:10px;}
   .pdf-btn:disabled{opacity:.6;}
+  .reset-btn{background:transparent; border:1.5px solid var(--alert); color:var(--alert); margin-top:8px;}
 
   .m-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px;}
   .m-cell{background:var(--paper); border-radius:10px; padding:10px 6px; text-align:center;}
@@ -256,6 +257,9 @@
       <div class="board-foot" id="boardFoot">総勤務時間8h／管理者出勤なし</div>
       <div class="sync-status" id="syncStatus"></div>
     </section>
+
+    <button class="copy-btn" id="saveBtn">💾 この内容を保存する（チームに反映）</button>
+    <button class="copy-btn reset-btn" id="resetBtn">🔄 入力をリセット</button>
 
     <button class="copy-btn" id="copyBtn">📋 グループLINE投稿用テキストをコピー</button>
     <button class="copy-btn pdf-btn" id="pdfBtn">📄 ボードをPDFで保存</button>
@@ -409,7 +413,7 @@ document.querySelectorAll('.stepper button').forEach(btn=>{
   $(id).addEventListener('change', update);
 });
 $('dateInput').addEventListener('change', ()=>{
-  update();
+  loadTodayIntoForm();
   loadComparison();
 });
 
@@ -421,13 +425,9 @@ function pctColor(pct){
 }
 
 let currentPct = 0;
-let saveTimer = null;
 
-function update(){
-  const dateStr = $('dateInput').value || todayStr();
-  $('dateLabel').textContent = fmtDateLabel(dateStr);
-  $('boardDate').textContent = `${CONFIG.officeName}｜${fmtDateLabel(dateStr)}`;
-
+// 表示用の値をまとめて取得する（保存はしない・純粋な計算のみ）
+function gatherEntry(){
   const hours = Math.max(0, Number($('hoursInput').value)||0);
   const managerOn = $('managerCheck').checked;
   let maxCount = (hours/8)*6;
@@ -440,25 +440,34 @@ function update(){
   const tokushiji = parseInt($('tokushiji').value||'0',10);
   const tenteki = parseInt($('tenteki').value||'0',10);
   const nyuuin = parseInt($('nyuuin').value||'0',10);
-
   const pct = maxCount>0 ? Math.round(((houmon+kaigi)/maxCount)*1000)/10 : 0;
-  const color = pctColor(pct);
-  currentPct = pct;
 
-  $('outHoumon').textContent = houmon;
-  $('outKaigi').textContent = kaigi;
-  $('outMax').textContent = maxCount;
-  $('outTokushiji').textContent = tokushiji;
-  $('outTenteki').textContent = tenteki;
-  $('outNyuuin').textContent = nyuuin;
+  return {hours, managerOn, houmon, kaigi, tokushiji, tenteki, nyuuin, maxCount, pct};
+}
 
-  $('pctText').textContent = pct + '%';
+function update(){
+  const dateStr = $('dateInput').value || todayStr();
+  $('dateLabel').textContent = fmtDateLabel(dateStr);
+  $('boardDate').textContent = `${CONFIG.officeName}｜${fmtDateLabel(dateStr)}`;
+
+  const entry = gatherEntry();
+  const color = pctColor(entry.pct);
+  currentPct = entry.pct;
+
+  $('outHoumon').textContent = entry.houmon;
+  $('outKaigi').textContent = entry.kaigi;
+  $('outMax').textContent = entry.maxCount;
+  $('outTokushiji').textContent = entry.tokushiji;
+  $('outTenteki').textContent = entry.tenteki;
+  $('outNyuuin').textContent = entry.nyuuin;
+
+  $('pctText').textContent = entry.pct + '%';
   $('pctText').style.color = color;
-  $('gaugeFill').style.width = Math.min(100,pct) + '%';
+  $('gaugeFill').style.width = Math.min(100,entry.pct) + '%';
   $('gaugeFill').style.background = color;
 
   const badge = $('statusBadge');
-  if(pct < 70){
+  if(entry.pct < 70){
     badge.textContent = '受入れ余力あり';
     badge.style.background = 'rgba(94,166,80,0.25)';
   } else {
@@ -466,55 +475,60 @@ function update(){
     badge.style.background = 'rgba(196,82,58,0.28)';
   }
 
-  $('boardFoot').textContent = `総勤務時間${hours}h／管理者出勤${managerOn?'あり（-3件）':'なし'}`;
+  $('boardFoot').textContent = `総勤務時間${entry.hours}h／管理者出勤${entry.managerOn?'あり（-3件）':'なし'}`;
+}
 
-  const entry = {hours, managerOn, houmon, kaigi, tokushiji, tenteki, nyuuin, maxCount, pct};
+// この日付に既に保存済みのデータがあれば読み込んでフォームに反映する
+// （ページを開いただけでデフォルト値に上書きされるのを防ぐ）
+async function loadTodayIntoForm(){
+  const dateStr = $('dateInput').value || todayStr();
+  const status = $('syncStatus');
+  if(status) status.textContent = '読み込み中…';
+  const existing = await storageGetEntry(dateStr);
+  if(existing){
+    $('hoursInput').value = existing.hours ?? 8;
+    $('managerCheck').checked = !!existing.managerOn;
+    $('houmon').value = existing.houmon ?? 0;
+    $('kaigi').value = existing.kaigi ?? 0;
+    $('tokushiji').value = existing.tokushiji ?? 0;
+    $('tenteki').value = existing.tenteki ?? 0;
+    $('nyuuin').value = existing.nyuuin ?? 0;
+    if(status) status.textContent = '✓ 保存済みのデータを表示しています';
+  } else {
+    if(status) status.textContent = 'この日はまだ保存されていません';
+  }
+  update();
+}
+loadTodayIntoForm();
 
-  // 取りこぼし防止：まずこの端末に即座に保存する（サーバー同期を待たない）
+$('saveBtn').addEventListener('click', async ()=>{
+  const btn = $('saveBtn');
+  const dateStr = $('dateInput').value || todayStr();
+  const entry = gatherEntry();
+  const status = $('syncStatus');
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = '保存中…';
   if(localStorageOK){
     try{ localStorage.setItem(`daily:${dateStr}`, JSON.stringify(entry)); }catch(e){}
   }
-  scheduleSave(dateStr, entry);
-}
-update();
-
-// --- サーバー（Netlify Functions）への同期 ---
-// ローカル保存は即時（上のupdate内）で完了させ、サーバー同期は少し待ってからまとめて送る。
-// タブを閉じる／ページを離れる瞬間も sendBeacon で確実に送信する。
-let pendingDate = null;
-let pendingEntry = null;
-
-function scheduleSave(dateStr, entry){
-  pendingDate = dateStr;
-  pendingEntry = entry;
-  const status = $('syncStatus');
-  if(status) status.textContent = '保存中…';
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async ()=>{
-    const ok = await storageSetEntry(dateStr, entry);
-    if(status) status.textContent = ok ? '✓ サーバーに保存済み（他端末でも共有されます）' : '⚠ この端末のみに保存（サーバーに未接続）';
-    pendingDate = null;
-    pendingEntry = null;
-  }, 500);
-}
-
-function flushPendingSave(){
-  if(!pendingDate || !pendingEntry) return;
-  clearTimeout(saveTimer);
-  try{
-    const blob = new Blob(
-      [JSON.stringify({ date: pendingDate, entry: pendingEntry })],
-      { type: 'application/json' }
-    );
-    navigator.sendBeacon('/.netlify/functions/entry', blob);
-  }catch(e){ /* 送信できなくても、ローカル保存は既に完了している */ }
-  pendingDate = null;
-  pendingEntry = null;
-}
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'hidden') flushPendingSave();
+  const ok = await storageSetEntry(dateStr, entry);
+  if(status) status.textContent = ok ? '✓ 保存しました（チームに反映されます）' : '⚠ この端末のみに保存されました（サーバーに未接続）';
+  showToast(ok ? '保存しました ✓' : 'サーバーに接続できず、この端末のみ保存しました');
+  btn.disabled = false;
+  btn.textContent = original;
 });
-window.addEventListener('pagehide', flushPendingSave);
+
+$('resetBtn').addEventListener('click', ()=>{
+  $('hoursInput').value = 8;
+  $('managerCheck').checked = false;
+  ['houmon','kaigi','tokushiji','tenteki','nyuuin'].forEach(id => $(id).value = 0);
+  update();
+  const status = $('syncStatus');
+  if(status) status.textContent = '入力をリセットしました（まだ保存されていません）';
+  showToast('入力をリセットしました。保存するには「保存する」を押してください');
+});
 
 async function loadComparison(){
   const dateStr = $('dateInput').value || todayStr();
@@ -548,30 +562,18 @@ function showToast(msg){
 $('copyBtn').addEventListener('click', async ()=>{
   const dateStr = $('dateInput').value || todayStr();
   const label = fmtDateLabel(dateStr);
-  const hours = Math.max(0, Number($('hoursInput').value)||0);
-  const managerOn = $('managerCheck').checked;
-  let maxCount = (hours/8)*6;
-  if(managerOn) maxCount -= 3;
-  if(maxCount < 0) maxCount = 0;
-  maxCount = Math.round(maxCount*10)/10;
-
-  const houmon = parseInt($('houmon').value||'0',10);
-  const kaigi = parseInt($('kaigi').value||'0',10);
-  const tokushiji = parseInt($('tokushiji').value||'0',10);
-  const tenteki = parseInt($('tenteki').value||'0',10);
-  const nyuuin = parseInt($('nyuuin').value||'0',10);
-  const pct = maxCount>0 ? Math.round(((houmon+kaigi)/maxCount)*1000)/10 : 0;
+  const entry = gatherEntry();
 
   let text = `【${CONFIG.officeName}｜${label}】\n\n`;
   text += `本日の稼働状況\n`;
-  text += `稼働率：${pct}%（目標70%）\n`;
-  text += `${pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
+  text += `稼働率：${entry.pct}%（目標70%）\n`;
+  text += `${entry.pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
   text += `＝＝＝＝＝\n`;
-  text += `訪問件数：${houmon}件\n`;
-  text += `会議件数：${kaigi}件\n`;
-  text += `特指示：${tokushiji}名\n`;
-  text += `点滴指示：${tenteki}名\n`;
-  text += `入院中：${nyuuin}名\n`;
+  text += `訪問件数：${entry.houmon}件\n`;
+  text += `会議件数：${entry.kaigi}件\n`;
+  text += `特指示：${entry.tokushiji}名\n`;
+  text += `点滴指示：${entry.tenteki}名\n`;
+  text += `入院中：${entry.nyuuin}名\n`;
 
   try{
     await navigator.clipboard.writeText(text);
