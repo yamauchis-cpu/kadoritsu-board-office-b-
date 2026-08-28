@@ -108,6 +108,7 @@
   .board-cell .n{font-family:'JetBrains Mono',monospace; font-weight:900; font-size:22px;}
   .board-cell .l{font-size:10.5px; opacity:.75; margin-top:2px;}
   .board-foot{font-size:11px; opacity:.7; margin-top:14px; text-align:right; position:relative;}
+  .sync-status{font-size:10.5px; opacity:.6; margin-top:4px; text-align:right; position:relative;}
 
   .copy-btn{
     width:100%; margin-top:14px; padding:13px; border-radius:12px; border:none;
@@ -253,6 +254,7 @@
         <div class="board-cell"><div class="n" id="outNyuuin">0</div><div class="l">入院中（名）</div></div>
       </div>
       <div class="board-foot" id="boardFoot">総勤務時間8h／管理者出勤なし</div>
+      <div class="sync-status" id="syncStatus"></div>
     </section>
 
     <button class="copy-btn" id="copyBtn">📋 グループLINE投稿用テキストをコピー</button>
@@ -261,7 +263,7 @@
     <section class="panel" style="margin-top:16px;">
       <h2>③ 今月の自動集計</h2>
       <div class="note">この端末に保存されている日々の記録から、選択した日付の「月」を自動集計します。</div>
-      <button class="copy-btn" id="monthlyBtn" style="margin-top:12px;">📊 今月の集計を計算する</button>
+      <button class="copy-btn" id="monthlyBtn" style="margin-top:12px;">📊 今月の集計を更新する</button>
 
       <div id="monthlyResult" class="hidden">
         <div class="m-grid">
@@ -466,17 +468,53 @@ function update(){
 
   $('boardFoot').textContent = `総勤務時間${hours}h／管理者出勤${managerOn?'あり（-3件）':'なし'}`;
 
-  scheduleSave(dateStr, {hours, managerOn, houmon, kaigi, tokushiji, tenteki, nyuuin, maxCount, pct});
+  const entry = {hours, managerOn, houmon, kaigi, tokushiji, tenteki, nyuuin, maxCount, pct};
+
+  // 取りこぼし防止：まずこの端末に即座に保存する（サーバー同期を待たない）
+  if(localStorageOK){
+    try{ localStorage.setItem(`daily:${dateStr}`, JSON.stringify(entry)); }catch(e){}
+  }
+  scheduleSave(dateStr, entry);
 }
 update();
 
-// --- 個人メモとして保存（チーム共有はしない）／先週同曜日との比較 ---
+// --- サーバー（Netlify Functions）への同期 ---
+// ローカル保存は即時（上のupdate内）で完了させ、サーバー同期は少し待ってからまとめて送る。
+// タブを閉じる／ページを離れる瞬間も sendBeacon で確実に送信する。
+let pendingDate = null;
+let pendingEntry = null;
+
 function scheduleSave(dateStr, entry){
+  pendingDate = dateStr;
+  pendingEntry = entry;
+  const status = $('syncStatus');
+  if(status) status.textContent = '保存中…';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async ()=>{
-    await storageSetEntry(dateStr, entry);
-  }, 700);
+    const ok = await storageSetEntry(dateStr, entry);
+    if(status) status.textContent = ok ? '✓ サーバーに保存済み（他端末でも共有されます）' : '⚠ この端末のみに保存（サーバーに未接続）';
+    pendingDate = null;
+    pendingEntry = null;
+  }, 500);
 }
+
+function flushPendingSave(){
+  if(!pendingDate || !pendingEntry) return;
+  clearTimeout(saveTimer);
+  try{
+    const blob = new Blob(
+      [JSON.stringify({ date: pendingDate, entry: pendingEntry })],
+      { type: 'application/json' }
+    );
+    navigator.sendBeacon('/.netlify/functions/entry', blob);
+  }catch(e){ /* 送信できなくても、ローカル保存は既に完了している */ }
+  pendingDate = null;
+  pendingEntry = null;
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden') flushPendingSave();
+});
+window.addEventListener('pagehide', flushPendingSave);
 
 async function loadComparison(){
   const dateStr = $('dateInput').value || todayStr();
@@ -524,7 +562,7 @@ $('copyBtn').addEventListener('click', async ()=>{
   const nyuuin = parseInt($('nyuuin').value||'0',10);
   const pct = maxCount>0 ? Math.round(((houmon+kaigi)/maxCount)*1000)/10 : 0;
 
-   let text = `【${CONFIG.officeName}｜${label}】\n\n`;
+  let text = `【${CONFIG.officeName}｜${label}】\n\n`;
   text += `本日の稼働状況\n`;
   text += `稼働率：${pct}%（目標70%）\n`;
   text += `${pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
@@ -592,7 +630,7 @@ $('pdfBtn').addEventListener('click', async ()=>{
 
 let lastMonthlySummary = null;
 
-$('monthlyBtn').addEventListener('click', async ()=>{
+async function runMonthlyAggregation(){
   const btn = $('monthlyBtn');
   const dateStr = $('dateInput').value || todayStr();
   const [y, m] = dateStr.split('-');
@@ -649,7 +687,11 @@ $('monthlyBtn').addEventListener('click', async ()=>{
     btn.disabled = false;
     btn.textContent = original;
   }
-});
+}
+
+$('monthlyBtn').addEventListener('click', runMonthlyAggregation);
+// ページを開いた時点で自動的に一度集計しておく（ボタンは「更新」用として残す）
+runMonthlyAggregation();
 
 $('monthlyCopyBtn').addEventListener('click', async ()=>{
   if(!lastMonthlySummary) return;
