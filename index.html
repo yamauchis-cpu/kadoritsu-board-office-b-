@@ -14,7 +14,6 @@
     --teal:#155048;
     --teal-deep:#0D3934;
     --ochre:#C57A2C;
-    --ochre-soft:#F3E2C8;
     --moss:#5C7A4C;
     --moss-soft:#DEEAD4;
     --alert:#C4523A;
@@ -68,9 +67,10 @@
 
   .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
   .stepper{display:flex; align-items:center; border:1.5px solid var(--line); border-radius:10px; overflow:hidden; background:#fbfdfc;}
-  .stepper button{width:34px; height:40px; border:none; background:var(--moss-soft); color:var(--teal-deep); font-size:17px; font-weight:700; cursor:pointer;}
+  .stepper button{width:34px; height:42px; border:none; background:var(--moss-soft); color:var(--teal-deep); font-size:17px; font-weight:700; cursor:pointer;}
   .stepper input{border:none; text-align:center; width:100%; font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; background:transparent; padding:0;}
   .field-label{font-size:11.5px; font-weight:700; color:var(--sub); margin-bottom:5px; display:block;}
+  .sub-head{font-size:12px; font-weight:700; color:var(--teal-deep); margin:2px 0 8px;}
 
   .note{font-size:11.5px; color:var(--sub); margin-top:4px; line-height:1.6;}
 
@@ -103,11 +103,11 @@
   .compare-row .diff.down{color:#8FD19E;}
   .compare-row .diff.flat{color:#fff; opacity:.8;}
 
-  .board-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; position:relative;}
+  .board-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; position:relative; margin-bottom:8px;}
   .board-cell{background:rgba(255,255,255,0.08); border-radius:10px; padding:10px 6px; text-align:center;}
   .board-cell .n{font-family:'JetBrains Mono',monospace; font-weight:900; font-size:22px;}
   .board-cell .l{font-size:10.5px; opacity:.75; margin-top:2px;}
-  .board-foot{font-size:11px; opacity:.7; margin-top:14px; text-align:right; position:relative;}
+  .board-foot{font-size:11px; opacity:.7; margin-top:12px; text-align:right; position:relative; line-height:1.7;}
   .sync-status{font-size:10.5px; opacity:.6; margin-top:4px; text-align:right; position:relative;}
 
   .copy-btn{
@@ -128,11 +128,13 @@
   .m-extreme div{flex:1; background:var(--paper); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--sub);}
   .m-extreme b{display:block; font-family:'JetBrains Mono',monospace; font-size:16px; color:var(--teal-deep); margin-top:2px;}
   .m-note{font-size:11px; color:var(--sub); margin-top:10px; line-height:1.6;}
+  .hidden{display:none;}
 
   .toast{
     position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
     background:var(--teal-deep); color:#fff; padding:10px 18px; border-radius:30px;
     font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .25s;
+    max-width:90%; text-align:center;
   }
   .toast.show{opacity:1;}
 
@@ -165,40 +167,94 @@
 
   <main>
     <section class="panel">
-      <h2>① 本日の勤務時間・体制</h2>
+      <h2>① 本日の勤務体制</h2>
       <label class="field">
-        <span>その日の総勤務時間（人時）</span>
-        <input type="number" id="hoursInput" value="8" min="0" step="0.5">
+        <span>全スタッフの勤務時間の合計（人時）</span>
+        <input type="number" id="hoursInput" value="8" min="0" step="0.25">
       </label>
-      <div class="note" style="margin-bottom:14px;">8時間勤務＝最大訪問件数6件として計算します（総勤務時間 ÷ 8 × 6）。</div>
+      <div class="note" style="margin-bottom:14px;">8時間勤務のスタッフ1名につき最大訪問時間5時間として換算します（勤務時間 ÷ 8 × 5）。</div>
 
-      <div class="check-row">
+      <div class="check-row" style="margin-bottom:0;">
         <input type="checkbox" id="managerCheck">
-        <label for="managerCheck">管理者が出勤している
-          <span class="sub">チェックすると最大訪問件数から3件を差し引きます</span>
+        <label for="managerCheck">管理者が出勤している（土日は除く）
+          <span class="sub">平日は管理業務があるため、最大訪問可能時間から2時間を差し引きます（管理者の最大訪問時間 5h→3h）。土日は管理者も訪問に入るためチェック不要です。</span>
         </label>
       </div>
     </section>
 
     <section class="panel">
-      <h2>② 本日の件数</h2>
-      <div class="grid3" style="margin-bottom:10px;">
+      <h2>② 訪問・会議のブロック数</h2>
+      <div class="note" style="margin-bottom:12px;">スケジュール表を見ながら、枠の数を数えて入力してください。</div>
+
+      <div class="sub-head">訪問（青い枠）</div>
+      <div class="grid3" style="margin-bottom:14px;">
         <div>
-          <span class="field-label">訪問件数</span>
+          <span class="field-label">30分枠</span>
           <div class="stepper">
-            <button type="button" data-target="houmon" data-d="-1">−</button>
-            <input type="number" id="houmon" value="0" inputmode="numeric">
-            <button type="button" data-target="houmon" data-d="1">＋</button>
+            <button type="button" data-target="h30" data-d="-1">−</button>
+            <input type="number" id="h30" value="0" inputmode="numeric">
+            <button type="button" data-target="h30" data-d="1">＋</button>
           </div>
         </div>
         <div>
-          <span class="field-label">会議件数</span>
+          <span class="field-label">60分枠</span>
           <div class="stepper">
-            <button type="button" data-target="kaigi" data-d="-1">−</button>
-            <input type="number" id="kaigi" value="0" inputmode="numeric">
-            <button type="button" data-target="kaigi" data-d="1">＋</button>
+            <button type="button" data-target="h60" data-d="-1">−</button>
+            <input type="number" id="h60" value="0" inputmode="numeric">
+            <button type="button" data-target="h60" data-d="1">＋</button>
           </div>
         </div>
+        <div>
+          <span class="field-label">90分枠</span>
+          <div class="stepper">
+            <button type="button" data-target="h90" data-d="-1">−</button>
+            <input type="number" id="h90" value="0" inputmode="numeric">
+            <button type="button" data-target="h90" data-d="1">＋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-head">会議等（ピンクの枠）</div>
+      <div class="grid3">
+        <div>
+          <span class="field-label">30分枠</span>
+          <div class="stepper">
+            <button type="button" data-target="k30" data-d="-1">−</button>
+            <input type="number" id="k30" value="0" inputmode="numeric">
+            <button type="button" data-target="k30" data-d="1">＋</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">60分枠</span>
+          <div class="stepper">
+            <button type="button" data-target="k60" data-d="-1">−</button>
+            <input type="number" id="k60" value="0" inputmode="numeric">
+            <button type="button" data-target="k60" data-d="1">＋</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">90分枠</span>
+          <div class="stepper">
+            <button type="button" data-target="k90" data-d="-1">−</button>
+            <input type="number" id="k90" value="0" inputmode="numeric">
+            <button type="button" data-target="k90" data-d="1">＋</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>③ 動かせる同行の時間</h2>
+      <label class="field" style="margin-bottom:0;">
+        <span>動かせる同行（複数名加算なし）</span>
+        <input type="number" id="excludeInput" value="0" min="0" step="0.25">
+      </label>
+      <div class="note">教育同行など、新規依頼が入れば外して調整できる時間を入力します。上の合計から差し引いて稼働率を計算します。<br>同行が必須で外せない場合は、ここには入れないでください。</div>
+    </section>
+
+    <section class="panel">
+      <h2>④ 本日の対象者数</h2>
+      <div class="grid3">
         <div>
           <span class="field-label">入院中（名）</span>
           <div class="stepper">
@@ -207,8 +263,6 @@
             <button type="button" data-target="nyuuin" data-d="1">＋</button>
           </div>
         </div>
-      </div>
-      <div class="grid3">
         <div>
           <span class="field-label">特指示（名）</span>
           <div class="stepper">
@@ -225,7 +279,6 @@
             <button type="button" data-target="tenteki" data-d="1">＋</button>
           </div>
         </div>
-        <div></div>
       </div>
     </section>
 
@@ -247,9 +300,11 @@
       <div class="compare-row" id="compareRow">先週の同曜日と比較中…</div>
 
       <div class="board-grid">
-        <div class="board-cell"><div class="n" id="outHoumon">0</div><div class="l">訪問件数</div></div>
-        <div class="board-cell"><div class="n" id="outKaigi">0</div><div class="l">会議件数</div></div>
-        <div class="board-cell"><div class="n" id="outMax">6.0</div><div class="l">最大訪問件数</div></div>
+        <div class="board-cell"><div class="n" id="outHoumon">0</div><div class="l">訪問時間（h）</div></div>
+        <div class="board-cell"><div class="n" id="outKaigi">0</div><div class="l">会議時間（h）</div></div>
+        <div class="board-cell"><div class="n" id="outMax">5.0</div><div class="l">最大訪問可能（h）</div></div>
+      </div>
+      <div class="board-grid">
         <div class="board-cell"><div class="n" id="outTokushiji">0</div><div class="l">特指示（名）</div></div>
         <div class="board-cell"><div class="n" id="outTenteki">0</div><div class="l">点滴指示（名）</div></div>
         <div class="board-cell"><div class="n" id="outNyuuin">0</div><div class="l">入院中（名）</div></div>
@@ -265,16 +320,16 @@
     <button class="copy-btn pdf-btn" id="pdfBtn">📄 ボードをPDFで保存</button>
 
     <section class="panel" style="margin-top:16px;">
-      <h2>③ 今月の自動集計</h2>
-      <div class="note">この端末に保存されている日々の記録から、選択した日付の「月」を自動集計します。</div>
+      <h2>⑤ 今月の集計</h2>
+      <div class="note">保存済みの日々の記録から、選択した日付の「月」を集計します。</div>
       <button class="copy-btn" id="monthlyBtn" style="margin-top:12px;">📊 今月の集計を更新する</button>
 
       <div id="monthlyResult" class="hidden">
         <div class="m-grid">
           <div class="m-cell"><div class="n" id="mDays">0</div><div class="l">記録日数</div></div>
           <div class="m-cell"><div class="n" id="mAvgPct">0%</div><div class="l">平均稼働率</div></div>
-          <div class="m-cell"><div class="n" id="mSumHoumon">0</div><div class="l">訪問件数合計</div></div>
-          <div class="m-cell"><div class="n" id="mSumKaigi">0</div><div class="l">会議件数合計</div></div>
+          <div class="m-cell"><div class="n" id="mSumHoumon">0</div><div class="l">訪問時間合計（h）</div></div>
+          <div class="m-cell"><div class="n" id="mSumKaigi">0</div><div class="l">会議時間合計（h）</div></div>
           <div class="m-cell"><div class="n" id="mSumTokushiji">0</div><div class="l">特指示合計（名）</div></div>
           <div class="m-cell"><div class="n" id="mSumTenteki">0</div><div class="l">点滴指示合計（名）</div></div>
         </div>
@@ -283,9 +338,10 @@
           <div>稼働率が最も低かった日<b id="mMinDay">--</b></div>
         </div>
         <div class="m-note" id="mNyuuinNote">入院中（名）：日平均 -- 名</div>
+        <div class="m-note" id="mExcludeNote">動かせる同行：月合計 -- 時間</div>
         <button class="copy-btn" id="monthlyCopyBtn" style="margin-top:12px;">📋 月次集計をコピー</button>
       </div>
-      <div id="monthlyEmpty" class="note hidden" style="margin-top:12px;">この月のデータはまだありません。日々ボードを入力すると、月末にここで自動集計されます。</div>
+      <div id="monthlyEmpty" class="note hidden" style="margin-top:12px;">この月のデータはまだありません。</div>
     </section>
   </main>
 </div>
@@ -297,14 +353,18 @@
 <script>
 // --- 事業所設定：コピーごとにここだけ変更してください ---
 const CONFIG = {
-  officeName: 'デイジー',                    // ボード・PDF・LINE投稿で使う短い名称
-  fullName: '訪問看護ステーション デイジー'   // ヘッダーで使う正式名称
+  officeName: 'デイジー',
+  fullName: '訪問看護ステーション デイジー'
 };
 document.title = `本日の稼働率ボード｜${CONFIG.officeName}`;
 
+// 8時間勤務のスタッフ1名あたりの最大訪問時間（時間）
+const MAX_VISIT_HOURS_PER_FULLTIME = 5;
+const FULLTIME_HOURS = 8;
+// 管理者が平日出勤する際に最大訪問可能時間から差し引く時間（5h→3h）
+const MANAGER_DEDUCT_HOURS = 2;
+
 // --- ストレージ層 ---
-// 1. まず Netlify Functions（共有バックエンド／複数端末で共有）を試す
-// 2. 使えない場合（未デプロイ・オフライン等）は端末内 localStorage にフォールバック
 let localStorageOK = false;
 try{
   const t = '__probe__';
@@ -312,7 +372,6 @@ try{
   localStorage.removeItem(t);
   localStorageOK = true;
 }catch(e){ localStorageOK = false; }
-const storageAvailable = true; // localStorageフォールバックが常にあるため
 
 async function storageGetEntry(date){
   try{
@@ -376,6 +435,9 @@ async function storageListMonth(month){
 }
 
 const $ = (id)=>document.getElementById(id);
+const numOf = (id)=>Math.max(0, Number($(id).value)||0);
+const intOf = (id)=>Math.max(0, parseInt($(id).value||'0',10)||0);
+const r1 = (n)=>Math.round(n*10)/10;
 
 function todayStr(){
   const d = new Date();
@@ -408,7 +470,9 @@ document.querySelectorAll('.stepper button').forEach(btn=>{
     update();
   });
 });
-['hoursInput','managerCheck','houmon','kaigi','nyuuin','tokushiji','tenteki'].forEach(id=>{
+['hoursInput','managerCheck','excludeInput',
+ 'h30','h60','h90','k30','k60','k90',
+ 'nyuuin','tokushiji','tenteki'].forEach(id=>{
   $(id).addEventListener('input', update);
   $(id).addEventListener('change', update);
 });
@@ -426,23 +490,40 @@ function pctColor(pct){
 
 let currentPct = 0;
 
-// 表示用の値をまとめて取得する（保存はしない・純粋な計算のみ）
+// 入力値から計算するだけ（保存はしない）
 function gatherEntry(){
-  const hours = Math.max(0, Number($('hoursInput').value)||0);
+  const hours = numOf('hoursInput');
   const managerOn = $('managerCheck').checked;
-  let maxCount = (hours/8)*6;
-  if(managerOn) maxCount -= 3;
-  if(maxCount < 0) maxCount = 0;
-  maxCount = Math.round(maxCount*10)/10;
+  const managerDeduct = MANAGER_DEDUCT_HOURS;
 
-  const houmon = parseInt($('houmon').value||'0',10);
-  const kaigi = parseInt($('kaigi').value||'0',10);
-  const tokushiji = parseInt($('tokushiji').value||'0',10);
-  const tenteki = parseInt($('tenteki').value||'0',10);
-  const nyuuin = parseInt($('nyuuin').value||'0',10);
-  const pct = maxCount>0 ? Math.round(((houmon+kaigi)/maxCount)*1000)/10 : 0;
+  // 最大訪問可能時間 = (総勤務時間 ÷ 8) × 5 − 管理者差引
+  let maxHours = (hours / FULLTIME_HOURS) * MAX_VISIT_HOURS_PER_FULLTIME;
+  if(managerOn) maxHours -= managerDeduct;
+  if(maxHours < 0) maxHours = 0;
+  maxHours = Math.round(maxHours*100)/100;
 
-  return {hours, managerOn, houmon, kaigi, tokushiji, tenteki, nyuuin, maxCount, pct};
+  // ブロック数 → 時間
+  const h30=intOf('h30'), h60=intOf('h60'), h90=intOf('h90');
+  const k30=intOf('k30'), k60=intOf('k60'), k90=intOf('k90');
+  const houmonHours = r1(h30*0.5 + h60*1 + h90*1.5);
+  const kaigiHours  = r1(k30*0.5 + k60*1 + k90*1.5);
+
+  const excludeHours = numOf('excludeInput');
+
+  // 稼働時間 = 訪問 + 会議 − 除外（マイナスにはしない）
+  let busyHours = houmonHours + kaigiHours - excludeHours;
+  if(busyHours < 0) busyHours = 0;
+  busyHours = r1(busyHours);
+
+  const tokushiji = intOf('tokushiji');
+  const tenteki = intOf('tenteki');
+  const nyuuin = intOf('nyuuin');
+  const pct = maxHours>0 ? Math.round((busyHours/maxHours)*1000)/10 : 0;
+
+  return {hours, managerOn, managerDeduct, maxHours,
+          h30,h60,h90,k30,k60,k90,
+          houmonHours, kaigiHours, excludeHours, busyHours,
+          tokushiji, tenteki, nyuuin, pct};
 }
 
 function update(){
@@ -450,24 +531,24 @@ function update(){
   $('dateLabel').textContent = fmtDateLabel(dateStr);
   $('boardDate').textContent = `${CONFIG.officeName}｜${fmtDateLabel(dateStr)}`;
 
-  const entry = gatherEntry();
-  const color = pctColor(entry.pct);
-  currentPct = entry.pct;
+  const e = gatherEntry();
+  const color = pctColor(e.pct);
+  currentPct = e.pct;
 
-  $('outHoumon').textContent = entry.houmon;
-  $('outKaigi').textContent = entry.kaigi;
-  $('outMax').textContent = entry.maxCount;
-  $('outTokushiji').textContent = entry.tokushiji;
-  $('outTenteki').textContent = entry.tenteki;
-  $('outNyuuin').textContent = entry.nyuuin;
+  $('outHoumon').textContent = e.houmonHours;
+  $('outKaigi').textContent = e.kaigiHours;
+  $('outMax').textContent = e.maxHours;
+  $('outTokushiji').textContent = e.tokushiji;
+  $('outTenteki').textContent = e.tenteki;
+  $('outNyuuin').textContent = e.nyuuin;
 
-  $('pctText').textContent = entry.pct + '%';
+  $('pctText').textContent = e.pct + '%';
   $('pctText').style.color = color;
-  $('gaugeFill').style.width = Math.min(100,entry.pct) + '%';
+  $('gaugeFill').style.width = Math.min(100,e.pct) + '%';
   $('gaugeFill').style.background = color;
 
   const badge = $('statusBadge');
-  if(entry.pct < 70){
+  if(e.pct < 70){
     badge.textContent = '受入れ余力あり';
     badge.style.background = 'rgba(94,166,80,0.25)';
   } else {
@@ -475,24 +556,32 @@ function update(){
     badge.style.background = 'rgba(196,82,58,0.28)';
   }
 
-  $('boardFoot').textContent = `総勤務時間${entry.hours}h／管理者出勤${entry.managerOn?'あり（-3件）':'なし'}`;
+  let foot = `総勤務時間${e.hours}h／管理者出勤${e.managerOn?`あり（-${e.managerDeduct}h）`:'なし'}`;
+  if(e.excludeHours > 0){
+    foot += `<br>稼働時間${e.busyHours}h（動かせる同行 -${e.excludeHours}h を差引済）`;
+  }
+  $('boardFoot').innerHTML = foot;
 }
 
-// この日付に既に保存済みのデータがあれば読み込んでフォームに反映する
-// （ページを開いただけでデフォルト値に上書きされるのを防ぐ）
+// 保存済みデータがあれば読み込む（開いただけで上書きされるのを防ぐ）
 async function loadTodayIntoForm(){
   const dateStr = $('dateInput').value || todayStr();
   const status = $('syncStatus');
   if(status) status.textContent = '読み込み中…';
-  const existing = await storageGetEntry(dateStr);
-  if(existing){
-    $('hoursInput').value = existing.hours ?? 8;
-    $('managerCheck').checked = !!existing.managerOn;
-    $('houmon').value = existing.houmon ?? 0;
-    $('kaigi').value = existing.kaigi ?? 0;
-    $('tokushiji').value = existing.tokushiji ?? 0;
-    $('tenteki').value = existing.tenteki ?? 0;
-    $('nyuuin').value = existing.nyuuin ?? 0;
+  const x = await storageGetEntry(dateStr);
+  if(x){
+    $('hoursInput').value = x.hours ?? 8;
+    $('managerCheck').checked = !!x.managerOn;
+    $('h30').value = x.h30 ?? 0;
+    $('h60').value = x.h60 ?? 0;
+    $('h90').value = x.h90 ?? 0;
+    $('k30').value = x.k30 ?? 0;
+    $('k60').value = x.k60 ?? 0;
+    $('k90').value = x.k90 ?? 0;
+    $('excludeInput').value = x.excludeHours ?? 0;
+    $('tokushiji').value = x.tokushiji ?? 0;
+    $('tenteki').value = x.tenteki ?? 0;
+    $('nyuuin').value = x.nyuuin ?? 0;
     if(status) status.textContent = '✓ 保存済みのデータを表示しています';
   } else {
     if(status) status.textContent = 'この日はまだ保存されていません';
@@ -523,7 +612,8 @@ $('saveBtn').addEventListener('click', async ()=>{
 $('resetBtn').addEventListener('click', ()=>{
   $('hoursInput').value = 8;
   $('managerCheck').checked = false;
-  ['houmon','kaigi','tokushiji','tenteki','nyuuin'].forEach(id => $(id).value = 0);
+  $('excludeInput').value = 0;
+  ['h30','h60','h90','k30','k60','k90','tokushiji','tenteki','nyuuin'].forEach(id => $(id).value = 0);
   update();
   const status = $('syncStatus');
   if(status) status.textContent = '入力をリセットしました（まだ保存されていません）';
@@ -556,31 +646,35 @@ function showToast(msg){
   const t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 1800);
+  setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
 $('copyBtn').addEventListener('click', async ()=>{
   const dateStr = $('dateInput').value || todayStr();
   const label = fmtDateLabel(dateStr);
-  const entry = gatherEntry();
+  const e = gatherEntry();
 
   let text = `【${CONFIG.officeName}｜${label}】\n\n`;
   text += `本日の稼働状況\n`;
-  text += `稼働率：${entry.pct}%（目標70%）\n`;
-  text += `${entry.pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
+  text += `稼働率：${e.pct}%（目標70%）\n`;
+  text += `${e.pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
   text += `＝＝＝＝＝\n`;
-  text += `訪問件数：${entry.houmon}件\n`;
-  text += `会議件数：${entry.kaigi}件\n`;
-  text += `特指示：${entry.tokushiji}名\n`;
-  text += `点滴指示：${entry.tenteki}名\n`;
-  text += `入院中：${entry.nyuuin}名\n`;
+  text += `訪問時間：${e.houmonHours}時間\n`;
+  text += `会議時間：${e.kaigiHours}時間\n`;
+  if(e.excludeHours > 0){
+    text += `動かせる同行：${e.excludeHours}時間（差引済）\n`;
+  }
+  text += `最大訪問可能時間：${e.maxHours}時間\n`;
+  text += `特指示：${e.tokushiji}名\n`;
+  text += `点滴指示：${e.tenteki}名\n`;
+  text += `入院中：${e.nyuuin}名\n`;
 
   try{
     await navigator.clipboard.writeText(text);
     showToast('コピーしました。グループLINEに貼り付けてください 📋');
     $('copyBtn').classList.add('copied');
     setTimeout(()=>$('copyBtn').classList.remove('copied'), 1500);
-  }catch(e){
+  }catch(err){
     showToast('コピーに失敗しました');
   }
 });
@@ -595,16 +689,12 @@ $('pdfBtn').addEventListener('click', async ()=>{
     if(typeof html2canvas === 'undefined' || !window.jspdf){
       throw new Error('lib not loaded');
     }
-    // Webフォントの読み込み完了を待ってから撮影する（先週比較の文字が数字と重なるのを防ぐ）
     if(document.fonts && document.fonts.ready){
       await document.fonts.ready;
     }
     await new Promise(r => setTimeout(r, 50));
-    const boardEl = $('board');
-    const canvas = await html2canvas(boardEl, {
-      backgroundColor: '#0D3934',
-      scale: 3,
-      useCORS: true
+    const canvas = await html2canvas($('board'), {
+      backgroundColor: '#0D3934', scale: 3, useCORS: true
     });
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
@@ -612,14 +702,12 @@ $('pdfBtn').addEventListener('click', async ()=>{
     const pageH = pageW * (canvas.height / canvas.width);
     const pdf = new jsPDF({
       orientation: pageH > pageW ? 'portrait' : 'landscape',
-      unit: 'mm',
-      format: [pageW, pageH]
+      unit: 'mm', format: [pageW, pageH]
     });
     pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH);
     pdf.save(`稼働率ボード_${dateStr}.pdf`);
     showToast('PDFを保存しました 📄');
   }catch(e){
-    // フォールバック：ブラウザ標準の印刷機能
     showToast('印刷画面を開きます。「PDFに保存」を選んでください 📄');
     setTimeout(()=>{
       try{ window.print(); }catch(err){ showToast('この環境ではPDF保存が利用できません'); }
@@ -645,16 +733,17 @@ async function runMonthlyAggregation(){
 
     if(entries.length === 0){
       $('monthlyResult').classList.add('hidden');
-      $('monthlyEmpty').textContent = 'この月のデータはまだありません。日々ボードを入力すると、月末にここで自動集計されます。';
+      $('monthlyEmpty').textContent = 'この月のデータはまだありません。';
       $('monthlyEmpty').classList.remove('hidden');
       return;
     }
 
-    let sumHoumon=0,sumKaigi=0,sumTokushiji=0,sumTenteki=0,sumNyuuin=0,sumPct=0;
+    let sumHoumon=0,sumKaigi=0,sumExclude=0,sumTokushiji=0,sumTenteki=0,sumNyuuin=0,sumPct=0;
     let maxPct=-Infinity, maxDate='', minPct=Infinity, minDate='';
     entries.forEach(e=>{
-      sumHoumon += e.houmon||0;
-      sumKaigi += e.kaigi||0;
+      sumHoumon += e.houmonHours||0;
+      sumKaigi += e.kaigiHours||0;
+      sumExclude += e.excludeHours||0;
       sumTokushiji += e.tokushiji||0;
       sumTenteki += e.tenteki||0;
       sumNyuuin += e.nyuuin||0;
@@ -663,8 +752,11 @@ async function runMonthlyAggregation(){
       if((e.pct||0) < minPct){ minPct = e.pct||0; minDate = e._date; }
     });
     const days = entries.length;
-    const avgPct = Math.round((sumPct/days)*10)/10;
-    const avgNyuuin = Math.round((sumNyuuin/days)*10)/10;
+    const avgPct = r1(sumPct/days);
+    const avgNyuuin = r1(sumNyuuin/days);
+    sumHoumon = r1(sumHoumon);
+    sumKaigi = r1(sumKaigi);
+    sumExclude = r1(sumExclude);
     const label = `${Number(y)}年${Number(m)}月`;
 
     $('mDays').textContent = days;
@@ -676,8 +768,11 @@ async function runMonthlyAggregation(){
     $('mMaxDay').textContent = `${fmtDateLabel(maxDate)} ${maxPct}%`;
     $('mMinDay').textContent = `${fmtDateLabel(minDate)} ${minPct}%`;
     $('mNyuuinNote').textContent = `入院中（名）：月合計${sumNyuuin}名／日平均${avgNyuuin}名`;
+    $('mExcludeNote').textContent = `動かせる同行：月合計${sumExclude}時間`;
 
-    lastMonthlySummary = {label, days, avgPct, sumHoumon, sumKaigi, sumTokushiji, sumTenteki, sumNyuuin, avgNyuuin, maxDate, maxPct, minDate, minPct};
+    lastMonthlySummary = {label, days, avgPct, sumHoumon, sumKaigi, sumExclude,
+                          sumTokushiji, sumTenteki, sumNyuuin, avgNyuuin,
+                          maxDate, maxPct, minDate, minPct};
 
     $('monthlyEmpty').classList.add('hidden');
     $('monthlyResult').classList.remove('hidden');
@@ -692,24 +787,24 @@ async function runMonthlyAggregation(){
 }
 
 $('monthlyBtn').addEventListener('click', runMonthlyAggregation);
-// ページを開いた時点で自動的に一度集計しておく（ボタンは「更新」用として残す）
 runMonthlyAggregation();
 
 $('monthlyCopyBtn').addEventListener('click', async ()=>{
   if(!lastMonthlySummary) return;
   const s = lastMonthlySummary;
-  let text = `【${CONFIG.officeName}｜${s.label}】月次集計\n`;
+  let text = `【${CONFIG.officeName}｜${s.label}】月次集計\n\n`;
   text += `記録日数：${s.days}日\n`;
-  text += `平均稼働率：${s.avgPct}%（目標70%）\n`;
-  text += `------------------\n`;
-  text += `訪問件数合計：${s.sumHoumon}件\n`;
-  text += `会議件数合計：${s.sumKaigi}件\n`;
+  text += `平均稼働率：${s.avgPct}%（目標70%）\n\n`;
+  text += `＝＝＝＝＝\n`;
+  text += `訪問時間合計：${s.sumHoumon}時間\n`;
+  text += `会議時間合計：${s.sumKaigi}時間\n`;
+  text += `動かせる同行合計：${s.sumExclude}時間\n`;
   text += `特指示合計：${s.sumTokushiji}名\n`;
   text += `点滴指示合計：${s.sumTenteki}名\n`;
-  text += `入院中：月合計${s.sumNyuuin}名／日平均${s.avgNyuuin}名\n`;
-  text += `------------------\n`;
-  text += `稼働率が最も高かった日：${fmtDateLabel(s.maxDate)} ${s.maxPct}%\n`;
-  text += `稼働率が最も低かった日：${fmtDateLabel(s.minDate)} ${s.minPct}%\n`;
+  text += `入院中：月合計${s.sumNyuuin}名／日平均${s.avgNyuuin}名\n\n`;
+  text += `＝＝＝＝＝\n`;
+  text += `最も高かった日：${fmtDateLabel(s.maxDate)} ${s.maxPct}%\n`;
+  text += `最も低かった日：${fmtDateLabel(s.minDate)} ${s.minPct}%\n`;
   try{
     await navigator.clipboard.writeText(text);
     showToast('月次集計をコピーしました 📋');
