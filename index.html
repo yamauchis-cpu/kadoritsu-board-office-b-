@@ -60,6 +60,10 @@
   }
   input:focus{outline:2px solid var(--teal); outline-offset:1px;}
 
+  .unit-wrap{position:relative;}
+  .unit-wrap input{padding-right:46px;}
+  .unit-suffix{position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:13px; font-weight:700; color:var(--sub); pointer-events:none;}
+
   .check-row{display:flex; align-items:center; gap:10px; padding:12px 13px; background:var(--paper); border-radius:10px; margin-bottom:14px;}
   .check-row input[type=checkbox]{width:20px; height:20px; accent-color:var(--teal);}
   .check-row label{font-size:14px; font-weight:700; flex:1;}
@@ -247,7 +251,10 @@
       <h2>③ 動かせる同行の時間</h2>
       <label class="field" style="margin-bottom:0;">
         <span>動かせる同行（複数名加算なし）</span>
-        <input type="number" id="excludeInput" value="0" min="0" step="0.25">
+        <div class="unit-wrap">
+          <input type="number" id="excludeInput" value="0" min="0" step="0.25">
+          <span class="unit-suffix">時間</span>
+        </div>
       </label>
       <div class="note">教育同行など、新規依頼が入れば外して調整できる時間を入力します。上の合計から差し引いて稼働率を計算します。<br>同行が必須で外せない場合は、ここには入れないでください。</div>
     </section>
