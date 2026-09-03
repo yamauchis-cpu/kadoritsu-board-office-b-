@@ -107,6 +107,19 @@
   .compare-row .diff.down{color:#8FD19E;}
   .compare-row .diff.flat{color:#fff; opacity:.8;}
 
+  .board-comment{
+    font-size:12.5px; line-height:1.6; color:rgba(255,255,255,0.92);
+    margin-top:2px; margin-bottom:10px;
+  }
+  .board-comment::before{content:"💬 ";}
+  .trend-wrap{
+    position:relative; background:rgba(255,255,255,0.06); border-radius:10px;
+    padding:8px 10px 6px; margin-bottom:12px;
+  }
+  .trend-head{display:flex; justify-content:space-between; align-items:baseline; font-size:11px; opacity:.8; margin-bottom:3px;}
+  .trend-latest{font-family:'JetBrains Mono',monospace; font-weight:700; opacity:1;}
+  .trend-empty, .trend-loading{font-size:11.5px; opacity:.75; display:block; padding:2px 0;}
+
   .board-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; position:relative; margin-bottom:8px;}
   .board-cell{background:rgba(255,255,255,0.08); border-radius:10px; padding:10px 6px; text-align:center;}
   .board-cell .n{font-family:'JetBrains Mono',monospace; font-weight:900; font-size:22px;}
@@ -304,6 +317,10 @@
         <span class="status-badge" id="statusBadge">受入れ余力あり</span>
       </div>
 
+      <div class="board-comment" id="boardComment"></div>
+
+      <div class="trend-wrap" id="trendWrap"><span class="trend-loading">直近7日の推移を読み込み中…</span></div>
+
       <div class="compare-row" id="compareRow">先週の同曜日と比較中…</div>
 
       <div class="board-grid">
@@ -486,6 +503,7 @@ document.querySelectorAll('.stepper button').forEach(btn=>{
 $('dateInput').addEventListener('change', ()=>{
   loadTodayIntoForm();
   loadComparison();
+  loadTrend();
 });
 
 function pctColor(pct){
@@ -496,6 +514,42 @@ function pctColor(pct){
 }
 
 let currentPct = 0;
+
+// 稼働率の帯ごとに一言コメントを用意し、その都度ランダムに選ぶ
+// （帯が変わらない限り同じ文言を保持し、入力の度に文言が揺れ動かないようにする）
+const COMMENT_POOL = {
+  low: [
+    '受け入れの余力は十分にあります。新規のご相談にも対応しやすい状況です。',
+    '今日はゆとりのある一日になりそうです。急な依頼にも対応しやすいです。',
+    '稼働率は低めです。その分、一件一件に時間をかけられる日かもしれません。'
+  ],
+  mid: [
+    'バランスの取れた稼働状況です。新規の相談にも無理なく対応できそうです。',
+    '落ち着いたペースで進められそうな一日です。',
+    '無理のない範囲で新しい依頼にも対応できる状況です。'
+  ],
+  nearTarget: [
+    '目標にしっかり近い、良いペースの一日です。',
+    '順調な稼働状況です。このペースを保っていきましょう。',
+    'しっかり稼働できている一日です。無理のない範囲で調整をお願いします。'
+  ],
+  high: [
+    'かなりタイトな一日です。新規の依頼は慎重に調整をお願いします。',
+    '稼働率がかなり高めです。必要に応じて周囲と分担してください。',
+    '受け入れ枠が少なめの状況です。急ぎでない依頼は翌日以降のご相談もご検討ください。'
+  ]
+};
+let lastCommentRange = null;
+let lastComment = '';
+function commentFor(pct){
+  const range = pct>=90 ? 'high' : pct>=70 ? 'nearTarget' : pct>=50 ? 'mid' : 'low';
+  if(range !== lastCommentRange){
+    lastCommentRange = range;
+    const pool = COMMENT_POOL[range];
+    lastComment = pool[Math.floor(Math.random()*pool.length)];
+  }
+  return lastComment;
+}
 
 // 入力値から計算するだけ（保存はしない）
 function gatherEntry(){
@@ -563,6 +617,8 @@ function update(){
     badge.style.background = 'rgba(196,82,58,0.28)';
   }
 
+  $('boardComment').textContent = commentFor(e.pct);
+
   let foot = `総勤務時間${e.hours}h／管理者出勤${e.managerOn?`あり（-${e.managerDeduct}h）`:'なし'}`;
   if(e.excludeHours > 0){
     foot += `<br>稼働時間${e.busyHours}h（動かせる同行 -${e.excludeHours}h を差引済）`;
@@ -614,6 +670,7 @@ $('saveBtn').addEventListener('click', async ()=>{
   showToast(ok ? '保存しました ✓' : 'サーバーに接続できず、この端末のみ保存しました');
   btn.disabled = false;
   btn.textContent = original;
+  loadTrend();
 });
 
 $('resetBtn').addEventListener('click', ()=>{
@@ -649,6 +706,58 @@ async function loadComparison(){
 }
 loadComparison();
 
+// 直近7日間（選択日を含む）の稼働率をミニ折れ線グラフで表示する
+async function loadTrend(){
+  const dateStr = $('dateInput').value || todayStr();
+  const wrap = $('trendWrap');
+  wrap.innerHTML = '<span class="trend-loading">直近7日の推移を読み込み中…</span>';
+
+  const days = [];
+  for(let i=6;i>=0;i--){ days.push(addDays(dateStr, -i)); }
+
+  let entries;
+  try{
+    entries = await Promise.all(days.map(d=>storageGetEntry(d)));
+  }catch(e){
+    wrap.innerHTML = '<span class="trend-empty">推移データを取得できませんでした</span>';
+    return;
+  }
+
+  const points = days.map((d,i)=>({date:d, pct: entries[i] ? entries[i].pct : null}));
+  const known = points.filter(p=>p.pct !== null);
+  if(known.length === 0){
+    wrap.innerHTML = '<span class="trend-empty">直近7日分のデータがまだありません</span>';
+    return;
+  }
+
+  const w=280, h=44, pad=4;
+  const xStep = (w - pad*2) / (points.length-1);
+  const toY = (pct)=> (h-pad) - (Math.min(100,Math.max(0,pct))/100) * (h-pad*2);
+  const targetY = toY(70);
+
+  let path = '';
+  let dots = '';
+  points.forEach((p,i)=>{
+    if(p.pct === null) return;
+    const x = pad + i*xStep;
+    const y = toY(p.pct);
+    path += (path==='' ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    const isLast = i === points.length-1;
+    dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isLast?3.2:2.2}" fill="${isLast?'#F0A26A':'#8FD19E'}"></circle>`;
+  });
+
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
+    <line x1="${pad}" y1="${targetY.toFixed(1)}" x2="${w-pad}" y2="${targetY.toFixed(1)}" stroke="rgba(255,255,255,0.28)" stroke-width="1" stroke-dasharray="3,3"></line>
+    <path d="${path.trim()}" fill="none" stroke="#8FD19E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${dots}
+  </svg>`;
+
+  const latest = known[known.length-1];
+  const range = `${days[0].slice(5).replace('-','/')}〜${days[6].slice(5).replace('-','/')}`;
+  wrap.innerHTML = `<div class="trend-head"><span>直近7日の推移（${range}）</span><span class="trend-latest">${latest.pct}%</span></div>${svg}`;
+}
+loadTrend();
+
 function showToast(msg){
   const t = $('toast');
   t.textContent = msg;
@@ -664,7 +773,8 @@ $('copyBtn').addEventListener('click', async ()=>{
   let text = `【${CONFIG.officeName}｜${label}】\n\n`;
   text += `本日の稼働状況\n`;
   text += `稼働率：${e.pct}%（目標70%）\n`;
-  text += `${e.pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n\n`;
+  text += `${e.pct<70?'→ 受入れ余力あり':'→ 受入れ枠は少なめ'}\n`;
+  text += `💬 ${commentFor(e.pct)}\n\n`;
   text += `＝＝＝＝＝\n`;
   text += `訪問時間：${e.houmonHours}時間\n`;
   text += `会議時間：${e.kaigiHours}時間\n`;
