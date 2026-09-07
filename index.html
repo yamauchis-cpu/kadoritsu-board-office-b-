@@ -265,8 +265,8 @@
       <label class="field" style="margin-bottom:0;">
         <span>動かせる同行（複数名加算なし）</span>
         <div class="unit-wrap">
-          <input type="number" id="excludeInput" value="0" min="0" step="0.25">
-          <span class="unit-suffix">時間</span>
+          <input type="number" id="excludeInput" value="0" min="0" step="5">
+          <span class="unit-suffix">分</span>
         </div>
       </label>
       <div class="note">教育同行など、新規依頼が入れば外して調整できる時間を入力します。上の合計から差し引いて稼働率を計算します。<br>同行が必須で外せない場合は、ここには入れないでください。</div>
@@ -569,7 +569,9 @@ function gatherEntry(){
   const houmonHours = r1(h30*0.5 + h60*1 + h90*1.5);
   const kaigiHours  = r1(k30*0.5 + k60*1 + k90*1.5);
 
-  const excludeHours = numOf('excludeInput');
+  // 動かせる同行は「分」で入力してもらい、計算用に時間へ換算する
+  const excludeMinutes = numOf('excludeInput');
+  const excludeHours = excludeMinutes / 60;
 
   // 稼働時間 = 訪問 + 会議 − 除外（マイナスにはしない）
   let busyHours = houmonHours + kaigiHours - excludeHours;
@@ -583,7 +585,7 @@ function gatherEntry(){
 
   return {hours, managerOn, managerDeduct, maxHours,
           h30,h60,h90,k30,k60,k90,
-          houmonHours, kaigiHours, excludeHours, busyHours,
+          houmonHours, kaigiHours, excludeHours, excludeMinutes, busyHours,
           tokushiji, tenteki, nyuuin, pct};
 }
 
@@ -620,8 +622,8 @@ function update(){
   $('boardComment').textContent = commentFor(e.pct);
 
   let foot = `総勤務時間${e.hours}h／管理者出勤${e.managerOn?`あり（-${e.managerDeduct}h）`:'なし'}`;
-  if(e.excludeHours > 0){
-    foot += `<br>稼働時間${e.busyHours}h（動かせる同行 -${e.excludeHours}h を差引済）`;
+  if(e.excludeMinutes > 0){
+    foot += `<br>稼働時間${e.busyHours}h（動かせる同行 -${e.excludeMinutes}分 を差引済）`;
   }
   $('boardFoot').innerHTML = foot;
 }
@@ -641,7 +643,7 @@ async function loadTodayIntoForm(){
     $('k30').value = x.k30 ?? 0;
     $('k60').value = x.k60 ?? 0;
     $('k90').value = x.k90 ?? 0;
-    $('excludeInput').value = x.excludeHours ?? 0;
+    $('excludeInput').value = (x.excludeHours!=null) ? Math.round(x.excludeHours*60) : 0;
     $('tokushiji').value = x.tokushiji ?? 0;
     $('tenteki').value = x.tenteki ?? 0;
     $('nyuuin').value = x.nyuuin ?? 0;
@@ -778,8 +780,8 @@ $('copyBtn').addEventListener('click', async ()=>{
   text += `＝＝＝＝＝\n`;
   text += `訪問時間：${e.houmonHours}時間\n`;
   text += `会議時間：${e.kaigiHours}時間\n`;
-  if(e.excludeHours > 0){
-    text += `動かせる同行：${e.excludeHours}時間（差引済）\n`;
+  if(e.excludeMinutes > 0){
+    text += `動かせる同行：${e.excludeMinutes}分（差引済）\n`;
   }
   text += `最大訪問可能時間：${e.maxHours}時間\n`;
   text += `特指示：${e.tokushiji}名\n`;
@@ -885,7 +887,7 @@ async function runMonthlyAggregation(){
     $('mMaxDay').textContent = `${fmtDateLabel(maxDate)} ${maxPct}%`;
     $('mMinDay').textContent = `${fmtDateLabel(minDate)} ${minPct}%`;
     $('mNyuuinNote').textContent = `入院中（名）：月合計${sumNyuuin}名／日平均${avgNyuuin}名`;
-    $('mExcludeNote').textContent = `動かせる同行：月合計${sumExclude}時間`;
+    $('mExcludeNote').textContent = `動かせる同行：月合計${Math.round(sumExclude*60)}分`;
 
     lastMonthlySummary = {label, days, avgPct, sumHoumon, sumKaigi, sumExclude,
                           sumTokushiji, sumTenteki, sumNyuuin, avgNyuuin,
@@ -915,7 +917,7 @@ $('monthlyCopyBtn').addEventListener('click', async ()=>{
   text += `＝＝＝＝＝\n`;
   text += `訪問時間合計：${s.sumHoumon}時間\n`;
   text += `会議時間合計：${s.sumKaigi}時間\n`;
-  text += `動かせる同行合計：${s.sumExclude}時間\n`;
+  text += `動かせる同行合計：${Math.round(s.sumExclude*60)}分\n`;
   text += `特指示合計：${s.sumTokushiji}名\n`;
   text += `点滴指示合計：${s.sumTenteki}名\n`;
   text += `入院中：月合計${s.sumNyuuin}名／日平均${s.avgNyuuin}名\n\n`;
