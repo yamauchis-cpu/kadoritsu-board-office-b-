@@ -1,8 +1,17 @@
 // 1日分の記録を取得（GET）・保存（POST）する関数
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 exports.handler = async (event) => {
-  const store = getStore('kadoritsu-entries');
+  // 2026-11 修正：この書き方（exports.handler）の関数では、Blobsを使う前に connectLambda(event) が必要。
+  // これが無いと getStore で例外になり、画面には502が返って端末内だけに保存されていた。
+  let store;
+  try {
+    connectLambda(event);
+    store = getStore('kadoritsu-entries');
+  } catch (e) {
+    console.log('[blobs] 接続できませんでした:', e && e.message);
+    return { statusCode: 500, body: JSON.stringify({ error: 'storage unavailable' }) };
+  }
 
   if (event.httpMethod === 'GET') {
     const date = event.queryStringParameters && event.queryStringParameters.date;
