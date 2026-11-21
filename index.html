@@ -410,6 +410,17 @@ async function storageGetEntry(date){
         if(data.entry && localStorageOK){
           try{ localStorage.setItem(`daily:${date}`, JSON.stringify(data.entry)); }catch(e){}
         }
+        // サーバーに無く、この端末にだけ残っている記録はサーバーへ送る（2026-11 追加）
+        if(!data.entry && localStorageOK){
+          try{
+            const v = localStorage.getItem(`daily:${date}`);
+            if(v){
+              const local = JSON.parse(v);
+              fetch('/.netlify/functions/entry', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date, entry: local}) }).catch(()=>{});
+              return local;
+            }
+          }catch(e){}
+        }
         return data.entry;
       }
     }
@@ -442,7 +453,28 @@ async function storageListMonth(month){
     const res = await fetch(`/.netlify/functions/month?month=${encodeURIComponent(month)}`);
     if(res.ok){
       const data = await res.json();
-      if(data && Array.isArray(data.entries)) return data.entries;
+      if(data && Array.isArray(data.entries)){
+        // サーバーに無い日の記録がこの端末にあれば、合わせて表示し、サーバーへ送る（2026-11 追加）
+        const have = new Set(data.entries.map(e => e._date));
+        if(localStorageOK){
+          try{
+            for(let i=0; i<localStorage.length; i++){
+              const k = localStorage.key(i);
+              if(k && k.indexOf(`daily:${month}`) === 0){
+                const d = k.replace('daily:', '');
+                if(have.has(d)) continue;
+                try{
+                  const e = JSON.parse(localStorage.getItem(k));
+                  fetch('/.netlify/functions/entry', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date: d, entry: e}) }).catch(()=>{});
+                  e._date = d;
+                  data.entries.push(e);
+                }catch(err){}
+              }
+            }
+          }catch(e){}
+        }
+        return data.entries;
+      }
     }
   }catch(e){ /* バックエンド未使用 → ローカルにフォールバック */ }
   if(!localStorageOK) return [];
